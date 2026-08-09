@@ -1,26 +1,70 @@
-# Tailscale — Remote Access
+# Tailscale — Secure Remote Access
 
-Mesh VPN for secure remote access to the homelab from anywhere, without
-port-forwarding or exposing services to the public internet.
+Mesh VPN providing secure remote access to the homelab from anywhere, without
+port-forwarding or exposing any service to the public internet.
 
-## Why Tailscale
-- No inbound ports opened on the router (nothing exposed to the internet).
-- Encrypted end-to-end (WireGuard under the hood).
-- Devices reach each other by private `100.x.x.x` addresses on the "tailnet".
+## Why Tailscale (over port-forwarding)
 
-## Install (on the Proxmox host)
+Traditional remote access means forwarding ports on the router, which exposes
+services directly to the public internet — a constant attack surface that has to
+be patched, firewalled, and monitored.
+
+Tailscale takes a zero-trust approach instead:
+- Builds an encrypted mesh network (WireGuard) between my devices.
+- **No inbound ports are opened** on the router — nothing is reachable from the
+  public internet.
+- Devices reach each other over private `100.x.x.x` addresses on the "tailnet".
+- Access is tied to authenticated identity, not network location.
+
+For a homelab this is both more secure and simpler to run than port-forwarding.
+
+## Setup
+
+### Proxmox host
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up   # prints an auth URL — open it, sign in to authenticate the host
-tailscale ip -4   # shows this host's tailnet IP
+tailscale up            # prints an auth URL — sign in to join the tailnet
+tailscale ip -4         # this host's tailnet IP
 ```
 
-## Other Devices
-- Phone / laptop: install the Tailscale app, sign in with the same account.
-- NixOS workstation: `services.tailscale.enable = true;` then `sudo tailscale up`.
+### NixOS workstation (declarative)
+```nix
+services.tailscale.enable = true;
+```
+```bash
+sudo tailscale up
+```
+
+### Arch laptop
+```bash
+sudo pacman -S tailscale
+sudo systemctl enable --now tailscaled
+sudo tailscale up
+```
+
+### Phone
+Installed the Tailscale app and signed in with the same account.
+
+## Tailnet
+
+All devices authenticate to the same account, forming one private mesh:
+
+| Device | Role |
+|--------|------|
+| <PROXMOX_HOSTNAME> (Proxmox) | Homelab host |
+| NixOS desktop | Workstation |
+| Arch laptop | Secondary workstation |
+| Phone | Mobile access |
+
+## MagicDNS
+
+Enabled MagicDNS (Tailscale admin console -> DNS) so devices are reachable by
+name instead of IP — e.g. the Proxmox web UI at `https://<PROXMOX_HOSTNAME>:8006` from any
+device on the tailnet, rather than memorizing `100.x.x.x` addresses.
 
 ## Result
-Reach the Proxmox web UI remotely at `https://<tailnet-ip>:8006` from any device
-signed into the tailnet — as if on the home LAN.
 
-*(status: in progress)*
+The Proxmox web UI and homelab services are reachable from any enrolled device,
+anywhere (tested from a phone on cellular), with no ports exposed to the public
+internet. Remote access is authenticated, encrypted end-to-end, and requires no
+changes to router/firewall inbound rules.

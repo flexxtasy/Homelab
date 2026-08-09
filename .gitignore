@@ -1,0 +1,10 @@
+# Never commit secrets
+*.key
+*.pem
+*.env
+*password*
+*secret*
+*token*
+authkey*
+tailscale-auth*
+private-notes/

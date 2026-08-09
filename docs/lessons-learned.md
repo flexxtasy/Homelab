@@ -75,6 +75,32 @@ Ran a vanilla 1.26.2 server in a Debian 12 LXC container on Proxmox.
   outside the network (or vice-versa) just fails to connect.
 - The container IP was DHCP-**reserved** so the port-forward target can't drift.
 
+## Proxmox Firewall
+
+### A rule must be created *and* enabled
+- Built the container's 25565 allow rule with all-correct settings, but remote
+  players still timed out. The rule had an **unchecked enable box** — in Proxmox,
+  creating a rule and enabling it are separate steps, and an unchecked rule compiles
+  to nothing. Several rules were unchecked for the same reason.
+
+### Debug by reading the compiled ruleset
+- `pve-firewall compile` prints the actual iptables chains Proxmox generates. The
+  container's inbound chain (`veth100i0-IN`) showed no 25565 line — proving the rule
+  wasn't active regardless of how it looked in the GUI. Trust the compiled output,
+  not the rule list.
+
+### "Timed out" vs. "refused"
+- Connection **refused** = reached the host, nothing listening (service down).
+  Connection **timed out** = packets dropped in transit (firewall). This distinction
+  pointed straight at the firewall as the cause rather than the server.
+
+### Don't over-firewall a port that must be open
+- The Minecraft port has to be internet-reachable — that's its job — so firewalling
+  the container mainly protects its *other* ports (which aren't forwarded anyway).
+  The real security win is at the host: management restricted to LAN + Tailscale with
+  default-deny. Knowing where a control adds value (and where it's just complexity)
+  matters as much as knowing how to configure it.
+
 ## General Linux / Storage
 
 ### Partition != Filesystem

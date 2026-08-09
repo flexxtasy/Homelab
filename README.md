@@ -21,20 +21,24 @@ what I built, the decisions behind it, and problems I solved along the way.
 
 - **Proxmox VE** — bare-metal hypervisor on the ThinkCentre, manages all VMs and containers
 - **Tailscale** — mesh VPN for secure remote access (no port-forwarding, no public exposure)
-- **Minecraft Server** — self-hosted vanilla server *(in progress)*
+- **Proxmox Firewall** — default-deny host hardening + per-service rules
+- **Minecraft Server** — self-hosted vanilla 1.26.2 server (LXC, running)
 - **Storage** — Seagate HDD added as Proxmox directory storage
 
 ## Network
 
 - Proxmox host: static IP `<PROXMOX_LAN_IP>` (LAN)
-- Remote access via Tailscale (private tailnet, `100.x.x.x` addresses)
-- No inbound ports exposed to the public internet — remote access is Tailscale-only
+- Remote admin access via Tailscale (private tailnet, `100.x.x.x` addresses)
+- **Firewall:** default-deny on the host; management (web UI, SSH) restricted to the
+  LAN and Tailscale only. The single intentionally-exposed port is Minecraft's
+  `25565`, forwarded to a locked-down container that allows only that port.
 
 ## Documentation
 
 - [Proxmox Setup](docs/proxmox-setup.md)
 - [Storage Configuration](docs/storage.md)
 - [Tailscale Remote Access](docs/tailscale.md)
+- [Firewall & Hardening](docs/firewall.md)
 - [Minecraft Server](docs/minecraft-server.md)
 - [Lessons Learned](docs/lessons-learned.md)
 
@@ -43,7 +47,7 @@ what I built, the decisions behind it, and problems I solved along the way.
 - Bare-metal hypervisor deployment and management (Proxmox VE)
 - Linux system administration (Debian, Arch, NixOS)
 - Infrastructure-as-code (NixOS declarative configuration, flakes)
-- Networking: static IPs, VPN mesh networking, firewall concepts
+- Networking: static IPs, VPN mesh networking, stateful firewall configuration and debugging (`pve-firewall`, iptables chains)
 - Storage: partitioning, filesystems, fstab, persistent mounts
 - Troubleshooting and debugging real-world issues (documented in lessons-learned)
 

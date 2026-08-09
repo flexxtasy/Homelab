@@ -39,6 +39,42 @@ Hyprland — a fully declarative, reproducible desktop.
   A minimal NixOS install doesn't include it — installed it before those inputs
   could resolve.
 
+## Minecraft Server (LXC)
+
+Ran a vanilla 1.26.2 server in a Debian 12 LXC container on Proxmox.
+
+### Java class-file version mismatch
+- First launch crashed with `UnsupportedClassVersionError: class file version 69.0,
+  this version only recognizes up to 65.0`.
+- Decoded: class file 65.0 = Java 21, 69.0 = Java 25. The jar was compiled for a
+  newer Java than was installed.
+- Debian bookworm ships only Java 17 (backports didn't have 21 either), so I added
+  the **Adoptium** repo and installed Temurin 25, then picked it with
+  `update-alternatives --config java`.
+- **Takeaway:** that error is a version map, not a mystery — the two numbers tell you
+  exactly which Java you have vs. which you need.
+
+### Whitelist verifies against Mojang
+- `whitelist add <name>` does a live lookup against Mojang's API, so a mistyped
+  username fails immediately with "That player does not exist" (plus a scary but
+  harmless stack trace). The name must be the exact Java Edition username.
+
+### "Connection refused" = nothing listening
+- A remote client got `finishConnect() failed with error(-111): Connection refused`.
+  That specific error means the packet reached the network but no process was
+  listening on the port — i.e. the server wasn't running, not a firewall/forwarding
+  problem. The cause: the server had been running in the foreground console, which
+  ended when the console closed.
+- **Fix + takeaway:** run the server in `screen` so it's decoupled from any console.
+  "Connection refused" vs. "connection timed out" is a useful distinction — refused
+  means reached-but-nothing-there, timed out usually means blocked/unreachable.
+
+### LAN vs. public IP
+- Same-network players use the container's **local** IP (`<CONTAINER_LAN_IP>`); remote
+  players use the **public** IP + port-forward. Handing a LAN address to someone
+  outside the network (or vice-versa) just fails to connect.
+- The container IP was DHCP-**reserved** so the port-forward target can't drift.
+
 ## General Linux / Storage
 
 ### Partition != Filesystem

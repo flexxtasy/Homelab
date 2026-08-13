@@ -101,6 +101,97 @@ Ran a vanilla 1.26.2 server in a Debian 12 LXC container on Proxmox.
   default-deny. Knowing where a control adds value (and where it's just complexity)
   matters as much as knowing how to configure it.
 
+## Homepage Dashboard
+
+See [Homepage](homepage.md) for full details.
+
+### "Host validation failed" on first access
+- Loaded fine via `curl localhost:3000` on the Docker VM itself, but the LAN
+  IP and Tailscale hostname both errored in the browser and in `docker logs
+  homepage` with `Host validation failed for: <host>:3000`.
+- **Cause:** Homepage's Next.js base validates the `Host` header against an
+  allowlist (DNS-rebinding protection) — anything not `localhost` needs to be
+  explicitly allowed.
+- **Fix:** add `HOMEPAGE_ALLOWED_HOSTS: <ip>:3000,<hostname>:3000,localhost:3000`
+  under `environment:` in the compose file, then `docker compose up -d` to
+  recreate the container.
+- **Takeaway:** when a self-hosted app works from `localhost` on its own host
+  but not from any other address, suspect host-header/origin validation before
+  suspecting the firewall or DNS.
+
+### Minecraft widget: vague browser error, real cause only in server logs
+- Browser showed generic "API Error: Unexpected error" with zero detail.
+  `docker logs homepage` had the real cause: `TypeError: Invalid URL`.
+- **Cause:** Homepage's widget config docs show `url: <ip>:<port>` (no scheme)
+  for the Minecraft widget, but its proxy layer calls `new URL()` on every
+  widget's `url` regardless of type — a scheme-less string throws immediately.
+- **Fix:** prefix with `http://` anyway (`url: http://<container-ip>:25565`)
+  even though Minecraft isn't HTTP — Homepage still performs a raw
+  server-list-ping under the hood, the scheme is only there to satisfy the URL parser.
+- **Takeaway:** for any Homepage widget error that's vague in the browser,
+  check `docker logs homepage` first — server-side errors are logged in full,
+  client-side messages are generic by design.
+
+### A tile's href silently pointed at the wrong service
+- The "Docker VM" dashboard tile linked to the Docker VM's bare LAN IP (no
+  port = 80), which happens to be Pi-hole's admin port on the same VM.
+  Clicking it looked like a broken Pi-hole login rather than an unrelated link.
+- **Takeaway:** on a multi-service host, a bare IP with no port is never
+  "the host" — it's whatever happens to be listening on port 80. Don't link
+  to a host generically; link to the actual service, or not at all.
+
+### Scope API tokens to least privilege, even for read-only dashboards
+- First pass created the Proxmox API token with `--privsep 0` (inherits root's
+  full permissions) just to get the dashboard widget working fast.
+- Redone properly: `--privsep 1` + explicit `PVEAuditor` (read-only) ACL grant
+  at path `/`. A dashboard only ever needs to *read* status.
+- **Takeaway:** "just get it working" credentials have a way of becoming
+  permanent — worth the extra two commands to scope it correctly the first time.
+
+## Vaultwarden
+
+See [Vaultwarden](vaultwarden.md) for full details.
+
+### `tailscale serve` beats running your own reverse proxy for tailnet-only services
+- Needed valid HTTPS for Vaultwarden (self-signed certs train you to click
+  through browser warnings — bad habit). Normally that means Caddy/nginx +
+  manually renewed certs.
+- `tailscale serve --bg <port>` gets a real, auto-renewing cert from
+  Tailscale's CA for the tailnet hostname, and only accepts connections from
+  other tailnet devices — no extra container, no cert files to manage, no
+  port to accidentally expose wider than intended.
+- **Takeaway:** for anything that only needs to be reachable within the
+  tailnet (not the LAN, not the internet), `tailscale serve` is simpler and
+  arguably more secure than a self-managed reverse proxy.
+
+### Two one-time settings block `tailscale cert`/`serve`, both easy to miss
+- `tailscale cert` failed with `Access denied` until running
+  `sudo tailscale set --operator=<user>` once (lets that user control
+  tailscaled without sudo every time).
+- Separately failed with `"your Tailscale account does not support getting
+  TLS certs"` until enabling **HTTPS Certificates** in the tailnet's admin
+  console (`https://login.tailscale.com/admin/dns`) — off by default per-tailnet.
+- **Takeaway:** both are one-time, low-risk settings, but neither has an
+  obvious error pointing at "go flip this setting in the admin console."
+
+### Escaping `$` in Docker Compose env values
+- An Argon2id hash (`$argon2id$v=19$...`) placed directly in a compose file's
+  `environment:` value gets silently mangled — Compose treats `$VAR`/`${VAR}`
+  as variable substitution.
+- **Fix:** escape every `$` as `$$` in the YAML.
+- **Takeaway:** any secret containing `$` (hashes, some generated passwords)
+  needs this escape in Compose — worth checking for `$` before pasting any
+  generated value into a compose file.
+
+### Keep the admin credential as a hash, not plaintext
+- Generated the Vaultwarden `ADMIN_TOKEN` as a random secret, then stored only
+  its Argon2id hash in the compose file (`argon2` CLI, Debian package). The
+  plaintext token was shown once and never written to any file on the server.
+- **Takeaway:** for any "admin panel gated by one shared secret" pattern,
+  default to hashing it the same way you'd hash a real password — a compose
+  file being read by something/someone it shouldn't doesn't hand over the
+  actual credential.
+
 ## General Linux / Storage
 
 ### Partition != Filesystem

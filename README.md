@@ -23,6 +23,8 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - **Minecraft Server** — self-hosted vanilla 1.26.2 server (LXC, running)
 - **Docker VM** — dedicated Debian VM running containerized services
 - **Pi-hole** — network-wide DNS ad/tracker blocking (Docker), delivered to all devices via Tailscale DNS
+- **Homepage** — self-hosted service dashboard (Docker) with live widgets for Proxmox, Pi-hole, Docker, and Minecraft
+- **Vaultwarden** — self-hosted, Bitwarden-compatible password manager (Docker), published Tailscale-only via `tailscale serve`
 - **Storage** — Seagate HDD added as Proxmox directory storage
 
 ## Network
@@ -42,6 +44,8 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - [Docker VM](docs/docker-vm.md)
 - [Pi-hole (Docker)](docs/pihole.md)
 - [Network-wide Pi-hole via Tailscale DNS](docs/pihole-tailscale-dns.md)
+- [Homepage (Service Dashboard)](docs/homepage.md)
+- [Vaultwarden (Password Manager)](docs/vaultwarden.md)
 - [Lessons Learned](docs/lessons-learned.md)
 
 ## Skills Demonstrated

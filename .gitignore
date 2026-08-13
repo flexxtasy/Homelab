@@ -8,3 +8,4 @@
 authkey*
 tailscale-auth*
 private-notes/
+.claude/

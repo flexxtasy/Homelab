@@ -5,7 +5,7 @@ while keeping Tailscale MagicDNS (device nicknames) working.
 
 ## The problem
 
-The ISP ([ISP]) all-in-one router does not allow changing the DNS server it
+The ISP's all-in-one router does not allow changing the DNS server it
 hands out to clients, and does not expose a way to disable its DHCP. So:
 
 - Setting the router's DNS to Pi-hole **did not** take effect — devices kept

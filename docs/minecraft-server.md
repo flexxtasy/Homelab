@@ -87,7 +87,7 @@ The container IP is DHCP-**reserved** at `<CONTAINER_LAN_IP>` so the address nev
 | Remote friends | their own homes | `<YOUR_PUBLIC_IP>:25565` (public IP) |
 
 Remote access works via a router **port-forward** of TCP `25565` -> `<CONTAINER_LAN_IP>`
-(set up in the My [ISP] app; external and internal port both 25565). Friends need
+(set up via the ISP's router-management app; external and internal port both 25565). Friends need
 no extra software — just the public IP.
 
 ### Keeping a public port friends-only

@@ -1,4 +1,10 @@
-# Homepage — Service Dashboard
+# Homepage — Service Dashboard (decommissioned)
+
+**Replaced by Homarr, 2026-08-18** — kept here as historical record only
+(same pattern as the decommissioned [Vault Hunters server](vault-hunters-server.md)).
+The container is stopped, not removed, so this doc still describes what's on
+disk. See `homarr.md` for the current dashboard.
+
 
 One address to see and reach every homelab service instead of remembering
 individual IPs/ports — [gethomepage.dev](https://gethomepage.dev), open
@@ -6,11 +12,15 @@ source, YAML-configured.
 
 ## Access
 
-- **LAN:** `http://<DOCKER_VM_LAN_IP>:3000`
-- **Tailscale:** `http://docker-vm:3000` (or the Docker VM's tailnet IP) from
-  any tailnet device — see [Tailscale](tailscale.md)
-- Not exposed to the internet — LAN/Tailscale only, consistent with the rest
-  of the homelab's [access posture](firewall.md).
+- **Tailscale only:** `https://docker-vm.<TAILNET_NAME>.ts.net:8443`, proxied
+  via `tailscale serve` to `127.0.0.1:3000` on the Docker VM — same pattern
+  as [Vaultwarden](vaultwarden.md).
+- **Not reachable from the LAN at all** (`ports: "127.0.0.1:3000:3000"` in
+  the compose file). This was originally LAN-exposed on `0.0.0.0:3000`; see
+  the lockdown entry below and [Lessons Learned](lessons-learned.md) for why
+  that changed.
+- Not exposed to the internet — Tailscale only, consistent with the rest of
+  the homelab's [access posture](firewall.md).
 
 ## Why Homepage over alternatives
 
@@ -32,9 +42,9 @@ services:
     container_name: homepage
     image: ghcr.io/gethomepage/homepage:latest
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: <DOCKER_VM_LAN_IP>:3000,docker-vm:3000,localhost:3000
+      HOMEPAGE_ALLOWED_HOSTS: 127.0.0.1:3000,localhost:3000,docker-vm.<TAILNET_NAME>.ts.net
     volumes:
       - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -45,7 +55,7 @@ Config lives in `~/homepage/config/` on the Docker VM: `settings.yaml`,
 `services.yaml`, `widgets.yaml`, `docker.yaml`.
 
 `services.yaml` — groups + entries (Proxmox, Docker VM, Pi-hole, Vaultwarden,
-Minecraft):
+Minecraft, AI Assistant):
 ```yaml
 - Infrastructure:
     - Proxmox:
@@ -55,7 +65,7 @@ Minecraft):
         widget:
           type: proxmox
           url: https://<PROXMOX_LAN_IP>:8006
-          username: root@pam!homepage
+          username: homepage@pve!dashboard
           password: <PROXMOX_API_TOKEN>
           node: <PROXMOX_HOSTNAME>
 
@@ -73,7 +83,7 @@ Minecraft):
         widget:
           type: pihole
           url: http://<DOCKER_VM_LAN_IP>
-          key: <PIHOLE_ADMIN_PASSWORD>
+          key: <PIHOLE_APP_PASSWORD>   # a dedicated API app password, NOT the admin login password — see lockdown note below
           version: 6
 
 - Security:
@@ -90,12 +100,20 @@ Minecraft):
         widget:
           type: minecraft
           url: http://<CONTAINER_LAN_IP>:25565   # scheme required even though it's not HTTP — see lesson below
+
+- AI:
+    - AI Assistant:
+        icon: ollama.png
+        href: https://<DESKTOP_TAILNET_HOSTNAME>.<TAILNET_NAME>.ts.net
+        description: Local AI assistant (Tailscale-only)
 ```
 
-No widget for the Vaultwarden tile — just a link, since Homepage doesn't have
-a native Vaultwarden/Bitwarden widget type. It's reachable from the dashboard
-even though it's not on the LAN at all, since the Docker VM (and thus
-Homepage itself) is on the same tailnet.
+No widget for the Vaultwarden or AI Assistant tiles — just links, since
+Homepage doesn't have native widget types for either. Both are reachable
+from the dashboard even though neither is on the LAN, since the Docker VM
+(and thus Homepage itself) is on the same tailnet — same pattern as
+[Vaultwarden](vaultwarden.md), just proxied through `tailscale serve`
+instead of being natively Tailscale-aware like Vaultwarden's own binary.
 
 `widgets.yaml` — top info bar (Docker VM's own resource usage + a search box):
 ```yaml
@@ -132,6 +150,12 @@ my-docker:
       explicitly (Pi-hole here is v6 — omitting `version` in Homepage risks
       it assuming the old v5 auth flow and erroring).
 - [x] **Vaultwarden tile** added under a new "Security" group (link only, no widget)
+- [x] **AI Assistant tile** added under a new "AI" group (link only, no
+      widget) — points at the self-hosted local LLM assistant, exposed via
+      `tailscale serve`
+- [x] **Locked down to Tailscale-only** (2026-08-18) — moved off `0.0.0.0:3000`
+      on the LAN, now `127.0.0.1:3000` + `tailscale serve --https=8443`. See
+      the incident writeup in [Lessons Learned](lessons-learned.md).
 
 ## Lessons learned
 

@@ -11,27 +11,32 @@ This repo documents the hardware, services, and configuration of my homelab — 
 | Device | Role | Specs |
 |---|---|---|
 | Lenovo ThinkCentre M720q | Proxmox VE host (hypervisor) | Runs all homelab VMs/containers |
-| Seagate 750GB HDD | Bulk storage | ext4, mounted for VM/file storage |
+| Seagate 750GB HDD | Bulk storage | ext4 — VM backups, media library storage |
 | Custom Desktop | Daily driver / workstation | Ryzen 7 8700F, RTX 5070 Ti, NixOS + Hyprland |
 | Laptop | Secondary / backup | Arch Linux |
 
 ## Services & Stack
 
 - **Proxmox VE** — bare-metal hypervisor on the ThinkCentre, manages all VMs and containers
-- **Tailscale** — mesh VPN for secure remote access (no port-forwarding, no public exposure)
+- **Tailscale** — mesh VPN for secure remote access (no port-forwarding, no public exposure); SSH password login is disabled on every host, key-only
 - **Proxmox Firewall** — default-deny host hardening + per-service rules
-- **Minecraft Server** — self-hosted vanilla 1.26.2 server (LXC, running)
+- **Automated Backups** — nightly `vzdump` snapshot backups of every VM/LXC to a dedicated drive, `keep-last=3` retention
+- **Minecraft Server** — self-hosted vanilla 1.26.2 server (LXC), started/stopped as needed
 - **Docker VM** — dedicated Debian VM running containerized services
 - **Pi-hole** — network-wide DNS ad/tracker blocking (Docker), delivered to all devices via Tailscale DNS
-- **Homepage** — self-hosted service dashboard (Docker) with live widgets for Proxmox, Pi-hole, Docker, and Minecraft
+- **Homarr** — self-hosted service dashboard (Docker) with live widgets for Proxmox, Pi-hole, Docker, and uptime; Tailscale-only
+- **Uptime Kuma** — status/uptime monitoring for every homelab service, Tailscale-only
 - **Vaultwarden** — self-hosted, Bitwarden-compatible password manager (Docker), published Tailscale-only via `tailscale serve`
-- **Storage** — Seagate HDD added as Proxmox directory storage
+- **Media Server (Jellyfin)** — dedicated LXC with Intel Quick Sync hardware transcoding, Tailscale-only
+- **Storage** — Seagate HDD added as Proxmox directory storage, also backing VM backups and media library
 
 ## Network
 
 - Proxmox host: static IP \`<PROXMOX_LAN_IP>\` (LAN)
 - Remote admin access via Tailscale (private tailnet, 100.x.x.x addresses)
 - Firewall: default-deny on the host; management (web UI, SSH) restricted to the LAN and Tailscale only. The single intentionally-exposed port is Minecraft's 25565, forwarded to a locked-down container that allows only that port.
+- SSH: key-only on every host (Proxmox, Docker VM) — password authentication disabled after a security audit found it still enabled by default.
+- Every dashboard/admin service (Homarr, Uptime Kuma, Vaultwarden, the AI assistant, the Jellyfin media server) is published **Tailscale-only** via \`tailscale serve\`, never bound to the LAN — one exception found and fixed the hard way, see [Lessons Learned](docs/lessons-learned.md).
 - DNS: Pi-hole serves as network DNS via Tailscale (works on- and off-LAN, MagicDNS preserved). The ISP router does not allow custom DNS/DHCP, so Tailscale DNS is used instead.
 
 ## Documentation
@@ -44,8 +49,11 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - [Docker VM](docs/docker-vm.md)
 - [Pi-hole (Docker)](docs/pihole.md)
 - [Network-wide Pi-hole via Tailscale DNS](docs/pihole-tailscale-dns.md)
-- [Homepage (Service Dashboard)](docs/homepage.md)
+- [Homarr (Service Dashboard)](docs/homarr.md)
+- [Uptime Kuma (Status Monitoring)](docs/uptime-kuma.md)
 - [Vaultwarden (Password Manager)](docs/vaultwarden.md)
+- [Media Server (Jellyfin)](docs/media-server.md)
+- [Proxmox Backups](docs/backups.md)
 - [Lessons Learned](docs/lessons-learned.md)
 
 ## Skills Demonstrated

@@ -148,6 +148,56 @@ See [Homepage](homepage.md) for full details.
 - **Takeaway:** "just get it working" credentials have a way of becoming
   permanent — worth the extra two commands to scope it correctly the first time.
 
+### Full homelab security audit found the dashboard was the real hole (2026-08-18)
+- Ran a proper audit across every homelab host (config review + `nmap`
+  service/port scans + live SSH-auth-method probes) rather than assuming
+  things were fine. Most of the homelab checked out clean — Proxmox's full
+  65535-port surface was just SSH + the web UI, Vaultwarden and the AI
+  assistant were correctly Tailscale-only, no privileged Docker containers,
+  no secrets in the AI harness code.
+- **The one real finding: Homepage itself.** It was bound to `0.0.0.0:3000`
+  (reachable by *any* device on the LAN, not just trusted ones) with zero
+  built-in authentication — and its `services.yaml` held the Proxmox API
+  token and the Pi-hole widget key in plaintext, both fetchable by loading
+  the page. The Pi-hole key turned out to double as a reused personal login
+  password, which is the actual worst part — a LAN-exposed dashboard
+  silently handing out a password used elsewhere.
+- **Mitigating factor, confirmed rather than assumed:** the Proxmox token
+  was already `--privsep 1` + `PVEAuditor` (read-only) from the earlier
+  lesson above, so the exposure was read-only recon, not a way to modify or
+  destroy anything. Verified this directly (`pveum acl list`) instead of
+  trusting the "should have been scoped" assumption.
+- **Fix:** same pattern already used for [Vaultwarden](vaultwarden.md) and
+  the AI assistant — moved off the LAN entirely instead of trying to bolt on
+  auth. Compose file changed to `ports: "127.0.0.1:3000:3000"`, then
+  `tailscale serve --https=8443 http://127.0.0.1:3000` (a second `serve`
+  port on the same Tailscale node, since 443 was already Vaultwarden's).
+  Also rotated the exposed credentials: the old `root@pam!homepage` token
+  was deleted outright and replaced with a dedicated `homepage@pve` user
+  (still `--privsep 1` + `PVEAuditor` only — least-privilege *and* not
+  attached to `root@pam` at all now), and the Pi-hole widget was switched
+  from the reused admin password to a dedicated API app password.
+- **Takeaway:** "LAN-only" is not the same as "safe" — anything bound to
+  `0.0.0.0` is reachable by every device on the network, including ones you
+  don't fully trust (guests, IoT, anything compromised). A dashboard that
+  aggregates credentials for *other* services is a higher-value target than
+  any one of those services alone, and deserves the strictest access model
+  in the homelab, not the loosest. When in doubt, default to Tailscale-only
+  like everything else here, rather than LAN-open-with-a-plan-to-add-auth-later.
+- **Same audit also found SSH password login still enabled on both the
+  Proxmox host and the Docker VM** (`PermitRootLogin yes` on Proxmox,
+  meaning root itself was password-reachable over SSH from anywhere on the
+  LAN) — confirmed with a live auth-method probe against each host, not just
+  by reading config. Both already had working key-based access, so this was
+  pure unnecessary exposure. Fixed by dropping
+  `PasswordAuthentication no` (+ `PermitRootLogin prohibit-password` on
+  Proxmox) into `/etc/ssh/sshd_config.d/99-harden.conf` on each host — a
+  drop-in file rather than editing the main config, so it's an isolated,
+  easily-reverted override — then `sshd -t` to validate syntax before
+  restarting, and re-probed both afterward to confirm only `publickey` is
+  offered now. **Takeaway:** if key-based access already works, password
+  auth is a door you don't use but still have to defend — turn it off.
+
 ## Vaultwarden
 
 See [Vaultwarden](vaultwarden.md) for full details.

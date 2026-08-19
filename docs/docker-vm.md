@@ -18,7 +18,7 @@ exactly like the official docs describe, and is the standard architecture.
 | VMID | 101 |
 | Name | docker (hostname `docker-vm`) |
 | OS | Debian 12 (netinst) |
-| RAM | 2 GB |
+| RAM | 4 GB (bumped from 2 GB, 2026-08-18 — see lessons below) |
 | Cores | 2 |
 | Disk | 20 GB on `local-lvm` (NVMe) |
 | IP | `<DOCKER_VM_LAN_IP>` (DHCP reserved) |
@@ -94,3 +94,15 @@ A 2 GB Docker VM alongside the 6 GB Minecraft LXC fits comfortably on 16 GB.
 - Debian minimal install skips `sudo` when a root password is set — expected, not a bug.
 - Use Docker's official repo, not the distro's `docker.io`, for a current version.
 - Check host RAM (`free -h`) **before** allocating a new VM — good habit.
+- **2 GB stopped being enough once a 5th container landed on it** — `free
+  -h` showed it had already dipped into swap (126 MB used) before the fix,
+  not just "low on free memory." `docker stats` broke down *why*: one
+  container (a Next.js-based dashboard) alone used as much RAM as the three
+  lightest containers combined — not a leak or misconfiguration, just what
+  that particular stack costs at idle. Bumped to 4 GB via `qm set --memory
+  4096` on the Proxmox host. **Memory hotplug wasn't enabled on this VM**
+  (no `hotplug: memory` in its config), so the change needed a full reboot
+  to actually take effect, not just a config update — worth checking
+  `qm config <id>` for hotplug support before assuming a memory bump is
+  live. Rebooted, and all containers came back on their own via `restart:
+  unless-stopped` with no manual intervention needed.

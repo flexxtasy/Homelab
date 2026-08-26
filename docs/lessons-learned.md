@@ -198,6 +198,33 @@ See [Homepage](homepage.md) for full details.
   offered now. **Takeaway:** if key-based access already works, password
   auth is a door you don't use but still have to defend — turn it off.
 
+## Media Stack (Radarr, Sonarr, Prowlarr, qBittorrent, FlareSolverr)
+
+See [Media Stack](media-stack.md) for full details — Cloudflare-bypass
+setup, a real malware-torrent incident, and a three-layer qBittorrent auth
+debugging saga. Highlights:
+
+- Prowlarr assigns a proxy (FlareSolverr) to an indexer via matching
+  **Tags** on both sides, not a "Proxy" dropdown.
+- Prowlarr's Radarr/Sonarr sync can silently no-op — use
+  `POST /api/v1/command {"name":"ApplicationIndexerSync","forceSync":true}`.
+- A `docker cp`'d SQLite file can lag behind the live app due to WAL —
+  query the running app's API instead of trusting a raw file copy.
+- **Auto-grab with no review pulled down real malware** (a `.exe`
+  disguised as a movie release) from a public tracker. Fixed by disabling
+  RSS/automatic search per-indexer while leaving interactive (manual)
+  search on — nothing grabs without a human looking at it first.
+- qBittorrent's WebUI had three stacked auth bugs once moved behind
+  Tailscale: its temp password only works from true loopback, its
+  host-header validation rejects any reverse-proxied/port-remapped
+  request, and its brute-force IP ban lives only in memory (clears on
+  restart, and doesn't block true-localhost access even while an
+  externally-triggered ban is active).
+- A password already flagged as compromised (from the Pi-hole incident)
+  got typed into chat again as a lightly-modified variant — caught and
+  replaced with something unrelated rather than trusting a "rotated"
+  password that's really the same secret with different punctuation.
+
 ## Vaultwarden
 
 See [Vaultwarden](vaultwarden.md) for full details.
@@ -241,6 +268,66 @@ See [Vaultwarden](vaultwarden.md) for full details.
   default to hashing it the same way you'd hash a real password — a compose
   file being read by something/someone it shouldn't doesn't hand over the
   actual credential.
+
+## Proxmox Host — NIC Hang Took Down the Whole Homelab (2026-08-25)
+
+Woke up to the entire homelab unreachable — not one service, everything at
+once. Traced it all the way back rather than just restarting things and
+moving on.
+
+### Root cause: onboard NIC hardware hang, not a software problem
+- `journalctl -b -1` on the Proxmox host showed the real story: at 07:00:30,
+  the kernel logged `e1000e: Detected Hardware Unit Hang` on the onboard
+  NIC, then **repeated every ~2 seconds continuously for nearly two hours**
+  — the driver's own watchdog kept trying to reset the interface and
+  immediately hanging again, never recovering on its own. Since this is
+  the host's *only* network path (LAN, Tailscale, and every VM/LXC's
+  bridged networking all ride the same physical NIC), losing it took the
+  whole stack down at once — nothing was actually broken inside any VM or
+  container, they just had no network to be reached on.
+- Checked for a triggering event at that exact timestamp (other log
+  activity, the nightly backup job) — nothing correlated. Backup runs at
+  03:00, four hours earlier; ruled out.
+- **Real cause: Energy Efficient Ethernet (EEE) was enabled** on the NIC —
+  `ethtool --show-eee` confirmed it active. This specific failure
+  signature (repeating hang, stuck TX descriptor) is a well-documented
+  e1000e/EEE interaction issue, not a one-off fluke.
+
+### Fix
+- Disabled EEE immediately: `ethtool --set-eee <nic> eee off`.
+- Made it persistent — a runtime `ethtool` change alone reverts on the
+  next boot. Added a `post-up` hook to the physical interface's stanza in
+  `/etc/network/interfaces`:
+  ```
+  iface <nic> inet manual
+  	post-up /usr/sbin/ethtool --set-eee <nic> eee off || true
+  ```
+  Verified the file still parses (`ifquery <nic>`) before trusting it.
+
+### Recovery took longer than it should have — separate, compounding issue
+- **None of the guest VMs/LXCs had `onboot` set** in Proxmox. After the
+  host came back up, every VM/LXC had to be started by hand — the actual
+  outage was ~2 hours, but full service recovery took longer because
+  nothing came back automatically.
+- Fixed: `qm set <vmid> --onboot 1` / `pct set <vmid> --onboot 1` on the
+  always-on guests (the Docker VM, the media LXC). Deliberately **left
+  the on-demand LXC (Minecraft) without onboot** — it's meant to be
+  started manually when actually in use, not always-running.
+
+### Takeaways
+- **"Everything is down at once" almost always means one shared
+  dependency, not N simultaneous failures** — check the host/network
+  layer first, not each service individually. Going straight to
+  per-service checks on a total outage is looking in the wrong place.
+- `journalctl -b -1` (the *previous* boot's log) is how you find out what
+  actually happened before a crash/reboot — the current boot's log starts
+  clean and won't show you the cause.
+- EEE is a common, low-risk-to-disable culprit for unexplained e1000e NIC
+  hangs — worth checking `ethtool --show-eee` early on any "one NIC just
+  stopped working" symptom before assuming failing hardware.
+- `onboot` defaults to off in Proxmox — worth setting explicitly on
+  anything meant to be always-available, or a host-level fault turns into
+  a much longer outage than the fault itself caused.
 
 ## General Linux / Storage
 

@@ -28,6 +28,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - **Uptime Kuma** — status/uptime monitoring for every homelab service, Tailscale-only
 - **Vaultwarden** — self-hosted, Bitwarden-compatible password manager (Docker), published Tailscale-only via `tailscale serve`
 - **Media Server (Jellyfin)** — dedicated LXC with Intel Quick Sync hardware transcoding, Tailscale-only
+- **Media Stack (Radarr, Sonarr, Prowlarr, qBittorrent, FlareSolverr)** — automated movie/TV acquisition feeding Jellyfin (Docker), Tailscale-only admin access, manual release review enabled
 - **Storage** — Seagate HDD added as Proxmox directory storage, also backing VM backups and media library
 
 ## Network
@@ -53,7 +54,9 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - [Uptime Kuma (Status Monitoring)](docs/uptime-kuma.md)
 - [Vaultwarden (Password Manager)](docs/vaultwarden.md)
 - [Media Server (Jellyfin)](docs/media-server.md)
+- [Media Stack (Radarr, Sonarr, Prowlarr, qBittorrent, FlareSolverr)](docs/media-stack.md)
 - [Proxmox Backups](docs/backups.md)
+- [Lyla — Local AI Assistant](docs/lyla-ai-assistant.md)
 - [Lessons Learned](docs/lessons-learned.md)
 
 ## Skills Demonstrated

@@ -35,9 +35,9 @@ services.tailscale.enable = true;
 sudo tailscale up
 ```
 
-### Arch laptop
+### Laptop (Void Linux)
 ```bash
-sudo pacman -S tailscale
+sudo xbps-install -S tailscale
 sudo systemctl enable --now tailscaled
 sudo tailscale up
 ```
@@ -53,7 +53,7 @@ All devices authenticate to the same account, forming one private mesh:
 |--------|------|
 | <PROXMOX_HOSTNAME> (Proxmox) | Homelab host |
 | NixOS desktop | Workstation |
-| Arch laptop | Secondary workstation |
+| Laptop (Void Linux) | Secondary workstation |
 | Phone | Mobile access |
 
 ## MagicDNS

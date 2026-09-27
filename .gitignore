@@ -9,3 +9,7 @@ authkey*
 tailscale-auth*
 private-notes/
 .claude/
+
+# personal course notes belong in ~/vaults/second-brain, never this public repo
+06-Courses/
+Courses/

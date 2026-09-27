@@ -76,6 +76,34 @@ screen -r minecraft     # re-attach to type server commands
 # Ctrl+A then D to detach again
 ```
 
+### Auto-start: systemd service wrapping screen
+
+Manual `screen` doesn't survive a container or host reboot, and the LXC itself had no
+`onboot` set — so an unattended Proxmox reboot would have left the server off. The fix
+keeps the `screen` console but lets systemd own it:
+
+```ini
+# /etc/systemd/system/minecraft.service
+[Service]
+WorkingDirectory=/opt/minecraft
+ExecStart=/usr/bin/screen -DmS minecraft /usr/bin/java -Xmx6G -Xms2G -jar server.jar nogui
+ExecStop=/usr/local/bin/minecraft-stop
+TimeoutStopSec=120
+Restart=on-failure
+```
+
+```sh
+# /usr/local/bin/minecraft-stop — type "stop" into the console so the world saves,
+# then wait for the service's main process to exit
+screen -S minecraft -p 0 -X stuff 'stop\015'
+while [ -n "${MAINPID:-}" ] && kill -0 "$MAINPID" 2>/dev/null; do sleep 1; done
+```
+
+Plus `pct set <CTID> --onboot 1` on the Proxmox host. A graceful restart now takes ~1 s
+of stop time and the log shows `All dimensions are saved` before exit. See
+[lessons learned](lessons-learned.md#minecraft-graceful-stop-under-systemd) for the two bugs
+it took to get there.
+
 ## Access
 
 The container IP is DHCP-**reserved** at `<CONTAINER_LAN_IP>` so the address never changes
@@ -117,7 +145,7 @@ max-players=10
 - [x] Running under `screen` (survives console close) — confirmed, players joined
 - [x] Whitelist enabled + members added
 - [x] IP reserved (<CONTAINER_LAN_IP>) + port-forward (25565)
-- [ ] **systemd service** for auto-start on container/host reboot (next step)
+- [x] **systemd service** + LXC `onboot` for auto-start on container/host reboot
 - [ ] Scheduled world backups to the Seagate storage
 
 ## Caveat: dynamic public IP

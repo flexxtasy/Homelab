@@ -329,6 +329,115 @@ moving on.
   anything meant to be always-available, or a host-level fault turns into
   a much longer outage than the fault itself caused.
 
+## Update Automation & Least Privilege (2026-09-24)
+
+### Security-only unattended-upgrades needs `#clear`
+Debian's default `50unattended-upgrades` already lists several origins. Adding a
+local file that only *appends* the security origin changes nothing. The override has
+to reset the list first:
+
+```
+// /etc/apt/apt.conf.d/52unattended-upgrades-local
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
+```
+
+Verify with `unattended-upgrade --dry-run -d | grep "Allowed origins"`. On the Proxmox
+host this means Debian security fixes install nightly, while the Proxmox kernel,
+`pve-manager`, QEMU and LXC packages stay manual.
+- **Takeaway:** auto-install what's low-risk and time-critical (security patches);
+  keep what can break the hypervisor behind a human decision. Always dry-run to see
+  the origins actually in effect.
+
+### Container updates: pre-download nightly, apply on approval
+A nightly script runs `docker pull` for every running container's image and compares
+the new image ID to the running one. Nothing restarts. The morning report lists which
+apps have a new image ready, and applying them is one approved `compose up -d` per
+project, with `docker image prune -f` afterwards. On a 19 GB VM disk the pulls alone
+moved usage from 46% to 65%, and the prune reclaimed 3.8 GB.
+- **Takeaway:** splitting "download" from "restart" gives you auto-update convenience
+  without surprise restarts, but budget disk space for two copies of every image.
+
+### Monitoring accounts drift into full root
+The desktop watcher's SSH account on the Proxmox host had `NOPASSWD: ALL`, left over
+from an earlier AI-agent experiment. Its sudo log showed it only ever ran five
+read-only commands. Replaced with a root-owned wrapper with fixed subcommands
+(`homelab-status lxc-list`, `jellyfin-state`, …) and a sudoers line allowing only that
+script. Tested that `sudo id` and `sudo pct` are refused and the watcher still passes.
+- **Takeaway:** check `journalctl _COMM=sudo` for what an automation account really
+  uses, then grant exactly that. A monitoring key with root is a hypervisor key.
+
+### Uptime Kuma had monitors but nobody to tell
+Six monitors, zero notification channels, so outages were recorded but never sent
+anywhere. Added a Discord notification applied to all monitors, plus `maxretries 2`
+so a single failed check doesn't page.
+- **Takeaway:** test the alert path end to end (the notification's *Test* button),
+  not just that the monitor turns red.
+
+### Minecraft graceful stop under systemd
+Two bugs before `systemctl restart minecraft` saved the world and stopped quickly:
+1. `pgrep -f "java .*server.jar"` inside `sh -c '…'` matched the shell itself (its own
+   command line contains the pattern), so the wait loop never ended and systemd
+   killed it at the 120 s timeout. Fixed by waiting on `$MAINPID` instead.
+2. `screen -X stuff "stop$(printf '\r')"` never pressed Enter: the server received
+   `stopr` (systemd's own escape handling ate a backslash), and later a raw CR still
+   didn't submit the line. Screen's own escape, `stuff 'stop\015'` in single quotes
+   inside a small script, works. The leftover `stopr…` text sat in the console until a
+   real Enter arrived and was rejected as an unknown command. Harmless, but a reminder
+   to check the log, not just the exit code.
+- **Takeaway:** keep non-trivial `ExecStop` logic in a script file (no systemd escaping
+  layer), and prove a graceful stop by reading the server log for the save message.
+
+### A single DNS server for the whole tailnet
+Tailscale's global nameserver is the Pi-hole container, with no second resolver.
+Rebooting the Docker VM (or the Proxmox host under it) takes internet name resolution
+away from every tailnet device for a few minutes.
+- **Takeaway:** add a secondary public resolver in the Tailscale admin console, and
+  schedule host reboots knowing DNS goes with them.
+
+### Docker's embedded DNS needs more than one upstream
+The media containers resolved names through a single upstream (the tailnet's DNS resolver).
+Whenever that one resolver had a brief hiccup, every indexer went "unavailable" at once —
+because Docker's embedded resolver had nothing to fall back to. Fixed by giving the Docker
+daemon an ordered DNS list in `/etc/docker/daemon.json`, then restarting Docker:
+
+```json
+{ "dns": ["<TAILNET_DNS_IP>", "<PIHOLE_LAN_IP>", "1.1.1.1"] }
+```
+
+Containers pick it up as the `ExtServers` list behind `127.0.0.11`.
+- **Takeaway:** Docker's embedded DNS only uses the daemon's `dns` list — give it several
+  resolvers (tailnet, LAN Pi-hole, a public fallback) so one upstream blip doesn't knock out
+  name resolution for every container.
+
+### A service rooted in an account you want to remove
+The *arr media stack's compose file and app-data lived under a **decommissioned service
+account's** home directory (left over from an earlier setup). That made the account impossible
+to lock/clean without breaking the stack. Moved the compose file and `app-data/` into the
+primary user's home, `docker compose down` in the old path, `up -d` in the new one, then verified
+each app's own health endpoint. UID/GID (`PUID/PGID`) stayed the same so file ownership on the
+media share didn't change.
+- **Takeaway:** don't leave a running service rooted in an account you plan to retire — the
+  dependency is invisible until the cleanup fails. Keep service data under an account that stays.
+
+### Local AI assistant: read freely, act only behind a human-confirmed code
+A small local LLM (running on the workstation, reaching the homelab over the tailnet) does two
+jobs: a **morning status report + outage alerts** (deterministic SSH checks, phrased by the model —
+the facts are gathered by code, only the wording is the model's), and **approval-gated maintenance**
+(restart a container, apply pending updates, reboot a host). Design rules that made it safe:
+- **Read-only status needs no approval; anything that changes state needs a one-time code** sent
+  out-of-band (a chat DM the model can't read), so the model can *propose* an action but can never
+  approve its own.
+- The agent has a **fixed allowlist of actions**, never a shell; on each host its SSH key is a
+  forced-command key that only runs a specific dispatcher script.
+- The monitoring account is **read-only** (a root-owned wrapper of fixed sub-commands), not general sudo.
+- **Takeaway:** an LLM is great at *reading* infrastructure and drafting changes, but it should only
+  *act* through a fixed action list, behind a human-confirmed token delivered out-of-band — never by
+  handing it a shell or letting it approve itself.
+
 ## General Linux / Storage
 
 ### Partition != Filesystem

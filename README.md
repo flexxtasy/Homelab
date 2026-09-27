@@ -35,7 +35,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 
 - Proxmox host: static IP \`<PROXMOX_LAN_IP>\` (LAN)
 - Remote admin access via Tailscale (private tailnet, 100.x.x.x addresses)
-- Firewall: default-deny on the host; management (web UI, SSH) restricted to the LAN and Tailscale only. The single intentionally-exposed port is Minecraft's 25565, forwarded to a locked-down container that allows only that port.
+- Firewall: default-deny on the host; management (web UI, SSH) restricted to the LAN and Tailscale only. Two ports are deliberately exposed, each scoped to exactly what it needs: Minecraft's 25565 (forwarded to a locked-down container that allows only that port) and qBittorrent's BitTorrent port (moved off the default 6881 to a non-standard port; its web UI stays loopback-only, unexposed).
 - SSH: key-only on every host (Proxmox, Docker VM) — password authentication disabled after a security audit found it still enabled by default.
 - Every dashboard/admin service (Homarr, Uptime Kuma, Vaultwarden, the AI assistant, the Jellyfin media server) is published **Tailscale-only** via \`tailscale serve\`, never bound to the LAN — one exception found and fixed the hard way, see [Lessons Learned](docs/lessons-learned.md).
 - DNS: Pi-hole serves as network DNS via Tailscale (works on- and off-LAN, MagicDNS preserved). The ISP router does not allow custom DNS/DHCP, so Tailscale DNS is used instead.

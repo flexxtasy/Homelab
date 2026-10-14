@@ -12,7 +12,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 |---|---|---|
 | Lenovo ThinkCentre M720q | Proxmox VE host (hypervisor) | Runs all homelab VMs/containers |
 | Seagate 750GB HDD | Bulk storage | ext4 — VM backups, media library storage |
-| Custom Desktop | Daily driver / workstation | Ryzen 7 8700F, RTX 5070 Ti, NixOS + Hyprland |
+| Custom Desktop | Daily driver / workstation | Ryzen 7 8700F, RTX 5070 Ti,AMD 9060Xt,  NixOS + Hyprland |
 | Laptop | Secondary / backup | Void Linux |
 
 ## Services & Stack

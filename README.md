@@ -6,6 +6,8 @@ Personal homelab documenting my self-hosted infrastructure, built for hands-on l
 
 This repo documents the hardware, services, and configuration of my homelab — what I built, the decisions behind it, and problems I solved along the way.
 
+**Related repos:** [Personal-Local-AI-Stack](https://github.com/flexxtasy/Personal-Local-AI-Stack) (the local LLM/inference stack this assistant runs on) · [TSTC Local AI Project](https://github.com/flexxtasy/TSTC-Local-AI-Project) (school build on a 5090).
+
 ## Hardware
 
 | Device | Role | Specs |
@@ -56,7 +58,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - [Media Server (Jellyfin)](docs/media-server.md)
 - [Media Stack (Radarr, Sonarr, Prowlarr, qBittorrent, FlareSolverr)](docs/media-stack.md)
 - [Proxmox Backups](docs/backups.md)
-- [Local AI Assistant (Hermes)](docs/ai-assistant.md)
+- [Local AI Assistant (Hermes)](docs/ai-assistant.md) — how the assistant plugs into the homelab; the model/inference deep-dive lives in [**Personal-Local-AI-Stack**](https://github.com/flexxtasy/Personal-Local-AI-Stack)
 - [Lessons Learned](docs/lessons-learned.md)
 
 ## Skills Demonstrated

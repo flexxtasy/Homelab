@@ -55,6 +55,7 @@ All devices authenticate to the same account, forming one private mesh:
 | NixOS desktop | Workstation |
 | Laptop (Void Linux) | Secondary workstation |
 | Phone | Mobile access |
+| pfSense VM | Subnet router for the private lab segment (`<LAB_SEGMENT>`) |
 
 ## MagicDNS
 

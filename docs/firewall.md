@@ -5,6 +5,9 @@ access is restricted to trusted networks, and each exposed service is allowed on
 its specific port. This documents the config and — more usefully — how I debugged
 it when a rule silently didn't work.
 
+(Host-side firewall; the guest-side pfSense appliance VM is documented in
+[pfsense-firewall.md](pfsense-firewall.md).)
+
 ## Design
 
 Proxmox firewall rules apply at three nested levels (Datacenter, Node, Guest) and

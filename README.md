@@ -22,6 +22,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - **Proxmox VE** — bare-metal hypervisor on the ThinkCentre, manages all VMs and containers
 - **Tailscale** — mesh VPN for secure remote access (no port-forwarding, no public exposure); SSH password login is disabled on every host, key-only
 - **Proxmox Firewall** — default-deny host hardening + per-service rules
+- **pfSense Lab Firewall** — pfSense CE VM forming a one-armed firewall with its own private lab segment (`<LAB_SEGMENT>`), subnet-routed over Tailscale for reach-from-away
 - **Automated Backups** — nightly `vzdump` snapshot backups of every VM/LXC to a dedicated drive, `keep-last=3` retention
 - **Minecraft Server** — self-hosted vanilla 1.26.2 server (LXC), started/stopped as needed
 - **Docker VM** — dedicated Debian VM running containerized services
@@ -48,6 +49,7 @@ This repo documents the hardware, services, and configuration of my homelab — 
 - [Storage Configuration](docs/storage.md)
 - [Tailscale Remote Access](docs/tailscale.md)
 - [Firewall & Hardening](docs/firewall.md)
+- [pfSense Lab Firewall (VM)](docs/pfsense-firewall.md)
 - [Minecraft Server](docs/minecraft-server.md)
 - [Docker VM](docs/docker-vm.md)
 - [Pi-hole (Docker)](docs/pihole.md)
